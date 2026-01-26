@@ -113,6 +113,76 @@ class TestDivertExpenses(cmptest.TestCase):
             diverted_account: "Assets:Daycare:Deposit"
         """, entries)
 
+    @loader.load_doc()
+    def test_divert_split(self, entries, errors, __):
+        """
+        plugin "beanlabs.plugins.divert_expenses" "{
+          'tag': 'trip',
+          'account': ['Expenses:Alice', 'Expenses:Bob'],
+        }"
+
+        2012-01-01 open Expenses:Food
+        2012-01-01 open Liabilities:CreditCard
+        2012-01-01 open Expenses:Alice
+        2012-01-01 open Expenses:Bob
+
+        2013-02-15 * "Dinner" #trip
+          Liabilities:CreditCard           -100.00 USD
+          Expenses:Food                     100.00 USD
+        """
+        self.assertFalse(errors)
+        self.assertEqualEntries("""
+
+        2012-01-01 open Expenses:Food
+        2012-01-01 open Liabilities:CreditCard
+        2012-01-01 open Expenses:Alice
+        2012-01-01 open Expenses:Bob
+
+        2013-02-15 * "Dinner" #trip
+          Liabilities:CreditCard           -100.00 USD
+          Expenses:Alice                     50.00 USD
+            diverted_account: "Expenses:Food"
+          Expenses:Bob                       50.00 USD
+            diverted_account: "Expenses:Food"
+        """, entries)
+
+    @loader.load_doc()
+    def test_divert_split_remainder(self, entries, errors, __):
+        """
+        plugin "beanlabs.plugins.divert_expenses" "{
+          'tag': 'trip',
+          'account': ['Expenses:A', 'Expenses:B', 'Expenses:C'],
+        }"
+
+        2012-01-01 open Expenses:Food
+        2012-01-01 open Liabilities:CreditCard
+        2012-01-01 open Expenses:A
+        2012-01-01 open Expenses:B
+        2012-01-01 open Expenses:C
+
+        2013-02-15 * "Dinner" #trip
+          Liabilities:CreditCard           -10.00 USD
+          Expenses:Food                     10.00 USD
+        """
+        self.assertFalse(errors)
+        self.assertEqualEntries("""
+
+        2012-01-01 open Expenses:Food
+        2012-01-01 open Liabilities:CreditCard
+        2012-01-01 open Expenses:A
+        2012-01-01 open Expenses:B
+        2012-01-01 open Expenses:C
+
+        2013-02-15 * "Dinner" #trip
+          Liabilities:CreditCard           -10.00 USD
+          Expenses:A                         3.34 USD
+            diverted_account: "Expenses:Food"
+          Expenses:B                         3.33 USD
+            diverted_account: "Expenses:Food"
+          Expenses:C                         3.33 USD
+            diverted_account: "Expenses:Food"
+        """, entries)
+
 
 if __name__ == '__main__':
     unittest.main()

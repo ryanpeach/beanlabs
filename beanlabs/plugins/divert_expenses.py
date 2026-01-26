@@ -34,6 +34,7 @@ __license__ = "GNU GPLv2"
 from beancount.core.data import Transaction
 from beancount.core import account_types
 from beancount.parser import options
+from decimal import Decimal
 
 
 __plugins__ = ("divert_expenses",)
@@ -55,9 +56,15 @@ def divert_expenses(entries, options_map, config_str):
       A modified list of entries.
     """
     # pylint: disable=eval-used
-    config_list = eval(config_str, {}, {})
-    if not isinstance(config_list, list):
-        raise RuntimeError("Invalid plugin configuration: should be a single dict.")
+    config = eval(config_str, {}, {})
+    if isinstance(config, dict):
+        config_list = [config]
+    elif isinstance(config, list):
+        config_list = config
+    else:
+        raise RuntimeError(
+            "Invalid plugin configuration: should be a single dict or list of dicts."
+        )
     config_dict = {cfg["tag"]: cfg["account"] for cfg in config_list}
     tags = frozenset(config_dict.keys())
 
@@ -95,6 +102,28 @@ def replace_diverted_accounts(entry, replacement_account, acctypes):
         ):
             meta = posting.meta.copy()
             meta.update({"diverted_account": posting.account})
-            posting = posting._replace(account=replacement_account, meta=meta)
-        new_postings.append(posting)
+
+            if isinstance(replacement_account, list):
+                number = posting.units.number
+                num_accounts = len(replacement_account)
+                split_val = number / Decimal(num_accounts)
+                split_quantized = split_val.quantize(number)
+                remainder = number - (split_quantized * num_accounts)
+
+                for i, account in enumerate(replacement_account):
+                    val = split_quantized
+                    if i == 0:
+                        val += remainder
+                    new_postings.append(
+                        posting._replace(
+                            account=account,
+                            units=posting.units._replace(number=val),
+                            meta=meta,
+                        )
+                    )
+            else:
+                posting = posting._replace(account=replacement_account, meta=meta)
+                new_postings.append(posting)
+        else:
+            new_postings.append(posting)
     return entry._replace(postings=new_postings)
