@@ -71,47 +71,52 @@ def forecast_plugin(entries, options_map):
     Returns:
       A tuple of entries and errors.
     """
-
-    # Find the last entry's date.
-    date_today = entries[-1].date
+    pattern = re.compile(
+        r"(^.*)\[(MONTHLY|YEARLY|WEEKLY|DAILY)"
+        r"(\s+SKIP\s+([1-9][0-9]*)\s+TIME.?)"
+        r"?(\s+REPEAT\s+([1-9][0-9]*)\s+TIME.?)"
+        r"?(\s+UNTIL\s+([0-9\-]+))?\]")
 
     # Filter out forecast entries from the list of valid entries.
-    forecast_entries = []
-    filtered_entries = []
+    forecast_entries: list[Directive] = []
+    filtered_entries: list[Directive] = []
+    errors: list[TodoError] = []
     for entry in entries:
-        outlist = (forecast_entries
-                   if (isinstance(entry, data.Transaction))
-                   else filtered_entries)
-        outlist.append(entry)
+        if isinstance(entry, data.Transaction):
+            if entry.flag == '#':
+                forecast_entries.append(entry)
+            else:
+                if re.search(pattern, entry.narration):
+                    errors.append(
+                        TodoError(
+                            source=entry.meta,
+                            message="Entry has a recurring narration without a # flag.",
+                            entry=entry,
+                        )
+                    )
+                filtered_entries.append(entry)
+        else:
+            filtered_entries.append(entry)
 
     # Generate forecast entries up to the end of the current year.
-    new_entries = []
+    new_entries: list[Directive] = []
     for entry in forecast_entries:
         # Parse the periodicity.
-        match = re.search(r'(^.*)\[(MONTHLY|YEARLY|WEEKLY|DAILY)'
-                          r'(\s+SKIP\s+([1-9][0-9]*)\s+TIME.?)'
-                          r'?(\s+REPEAT\s+([1-9][0-9]*)\s+TIME.?)'
-                          r'?(\s+UNTIL\s+([0-9\-]+))?\]', entry.narration)
+        match = re.search(  # pyright: ignore[reportCallIssue]
+            pattern,
+            entry.narration,  # pyright: ignore
+        )
         if not match:
-            if entry.flag == "#":
-                errors.append(
-                    TodoError(
-                        source=entry.meta,
-                        message="Entry has a # flag without a recurring narration.",
-                        entry=entry,
-                    )
+            errors.append(
+                TodoError(
+                    source=entry.meta,
+                    message="Entry has a # flag without a recurring narration.",
+                    entry=entry,
                 )
+            )
             new_entries.append(entry)
             continue
-        else:
-            if entry.flag != "#":
-                errors.append(
-                    TodoError(
-                        source=entry.meta,
-                        message="Entry has a recurring narration without a # flag.",
-                        entry=entry,
-                    )
-                )
+
         forecast_narration = match.group(1).strip()
         forecast_interval = (
             rrule.YEARLY if match.group(2).strip() == 'YEARLY'
