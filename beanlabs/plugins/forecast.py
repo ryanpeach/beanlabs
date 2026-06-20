@@ -78,9 +78,9 @@ def forecast_plugin(entries, options_map):
         r"?(\s+UNTIL\s+([0-9\-]+))?\]")
 
     # Filter out forecast entries from the list of valid entries.
-    forecast_entries: list[Directive] = []
-    filtered_entries: list[Directive] = []
-    errors: list[TodoError] = []
+    forecast_entries = []
+    filtered_entries = []
+    errors = []
     for entry in entries:
         if isinstance(entry, data.Transaction):
             if entry.flag == '#':
@@ -99,12 +99,12 @@ def forecast_plugin(entries, options_map):
             filtered_entries.append(entry)
 
     # Generate forecast entries up to the end of the current year.
-    new_entries: list[Directive] = []
+    new_entries = []
     for entry in forecast_entries:
         # Parse the periodicity.
-        match = re.search(  # pyright: ignore[reportCallIssue]
+        match = re.search(  
             pattern,
-            entry.narration,  # pyright: ignore
+            entry.narration, 
         )
         if not match:
             errors.append(
