@@ -93,8 +93,25 @@ def forecast_plugin(entries, options_map):
                           r'?(\s+REPEAT\s+([1-9][0-9]*)\s+TIME.?)'
                           r'?(\s+UNTIL\s+([0-9\-]+))?\]', entry.narration)
         if not match:
+            if entry.flag == "#":
+                errors.append(
+                    TodoError(
+                        source=entry.meta,
+                        message="Entry has a # flag without a recurring narration.",
+                        entry=entry,
+                    )
+                )
             new_entries.append(entry)
             continue
+        else:
+            if entry.flag != "#":
+                errors.append(
+                    TodoError(
+                        source=entry.meta,
+                        message="Entry has a recurring narration without a # flag.",
+                        entry=entry,
+                    )
+                )
         forecast_narration = match.group(1).strip()
         forecast_interval = (
             rrule.YEARLY if match.group(2).strip() == 'YEARLY'
