@@ -80,7 +80,7 @@ def forecast_plugin(entries, options_map):
     filtered_entries = []
     for entry in entries:
         outlist = (forecast_entries
-                   if (isinstance(entry, data.Transaction) and entry.flag == '#')
+                   if (isinstance(entry, data.Transaction))
                    else filtered_entries)
         outlist.append(entry)
 
